@@ -2,23 +2,24 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 from datetime import datetime
 import csv
-import database
-import logic
+import database as database
+import logic as logic
 import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
 
 class EcoGestApp:
     def __init__(self, root):
         self.root = root
         self.root.title("EcoGest - Gestion Financière")
-        self.root.geometry("1200x850")
+        self.root.geometry("1300x850") # Un peu plus large pour les budgets
         
         style = ttk.Style()
         style.theme_use('clam')
         
-        # Styles visuels
+        # Styles visuels pour les barres de progression
         style.configure("green.Horizontal.TProgressbar", background='#4caf50')
         style.configure("red.Horizontal.TProgressbar", background='#f44336')
 
@@ -92,6 +93,7 @@ class EcoGestApp:
         
         self.menu_inbox = tk.Menu(self.root, tearoff=0)
         self.menu_inbox.add_command(label="Modifier / Corriger", command=lambda: self.open_edit_modal(self.tree_inbox))
+        self.menu_inbox.add_command(label="⚡️ Créer une Règle", command=lambda: self.open_quick_rule_modal(self.tree_inbox))
         self.menu_inbox.add_separator()
         self.menu_inbox.add_command(label="Valider", command=self.validate_single_action)
         self.menu_inbox.add_command(label="Supprimer", command=lambda: self.delete_transaction_action(self.tree_inbox))
@@ -144,6 +146,7 @@ class EcoGestApp:
 
         self.menu_history = tk.Menu(self.root, tearoff=0)
         self.menu_history.add_command(label="Modifier Détails", command=lambda: self.open_edit_modal(self.tree_history))
+        self.menu_history.add_command(label="⚡️ Créer une Règle", command=lambda: self.open_quick_rule_modal(self.tree_history))
         self.menu_history.add_separator()
         self.menu_history.add_command(label="Supprimer", command=lambda: self.delete_transaction_action(self.tree_history))
 
@@ -158,7 +161,7 @@ class EcoGestApp:
         paned.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.left_frame = ttk.Frame(paned)
-        paned.add(self.left_frame, weight=1)
+        paned.add(self.left_frame, weight=3) # Plus d'espace pour le graph
         
         ctrl_frame = ttk.Frame(self.left_frame)
         ctrl_frame.pack(fill="x", pady=5)
@@ -168,8 +171,9 @@ class EcoGestApp:
         self.combo_chart_type.pack(side="left", padx=5)
         self.combo_chart_type.bind("<<ComboboxSelected>>", lambda e: self.update_chart())
         
-        self.combo_viz_style = ttk.Combobox(ctrl_frame, values=["Camembert", "Bâtons"], state="readonly", width=10)
-        self.combo_viz_style.current(0)
+        # --- MENU CHOIX GRAPHIQUE ---
+        self.combo_viz_style = ttk.Combobox(ctrl_frame, values=["Bulles", "Chronologie", "Pourcentages"], state="readonly", width=12)
+        self.combo_viz_style.current(2) # Pourcentages par défaut
         self.combo_viz_style.pack(side="left", padx=5)
         self.combo_viz_style.bind("<<ComboboxSelected>>", lambda e: self.update_chart())
 
@@ -407,78 +411,107 @@ class EcoGestApp:
         sel = tree.selection()
         if not sel: return
         
+        # On récupère l'ID
         t_id = tree.item(sel[0])['values'][0]
         data = database.get_transaction_by_id(t_id)
+        
         if not data:
             messagebox.showerror("Erreur", "Transaction introuvable.")
             return
             
-        current_date, current_label, current_amount, current_cat, current_status, current_note = data[1], data[2], data[3], data[4], data[5], data[6]
+        # Extraction des données
+        current_date = data[1]
+        current_label = data[2]
+        current_amount = data[3]
+        current_cat = data[4]
+        current_status = data[5]
+        current_note = data[6]
 
         win = tk.Toplevel(self.root)
         win.title(f"Modifier Transaction #{t_id}")
-        win.geometry("450x500")
+        win.geometry("450x550")
         win.transient(self.root)
         win.grab_set()
 
+        # 1. DATE
         ttk.Label(win, text="Date (AAAA-MM-JJ) :").pack(pady=(15, 5))
         e_date = ttk.Entry(win, width=30)
-        e_date.insert(0, current_date)
+        e_date.insert(0, current_date if current_date else "")
         e_date.pack()
 
+        # 2. LIBELLÉ
         ttk.Label(win, text="Libellé :").pack(pady=5)
         e_label = ttk.Entry(win, width=50)
-        e_label.insert(0, current_label)
+        e_label.insert(0, current_label if current_label else "")
         e_label.pack()
 
+        # 3. MONTANT
         ttk.Label(win, text="Montant (€) :").pack(pady=5)
         e_amount = ttk.Entry(win, width=20)
-        e_amount.insert(0, str(current_amount))
+        e_amount.insert(0, str(current_amount) if current_amount is not None else "0.0")
         e_amount.pack()
 
+        # 4. CATÉGORIE
         ttk.Label(win, text="Catégorie :").pack(pady=5)
         cats = database.list_categories()
         e_cat = ttk.Combobox(win, values=cats, state="readonly", width=28)
-        e_cat.set(current_cat)
+        
+        if current_cat:
+            e_cat.set(current_cat)
+        else:
+            e_cat.set('') 
+            
         e_cat.pack()
 
+        # 5. NOTE
         ttk.Label(win, text="Note (Optionnel) :").pack(pady=5)
         e_note = ttk.Entry(win, width=50)
         if current_note: e_note.insert(0, current_note)
         e_note.pack()
 
+        # 6. STATUT
         ttk.Label(win, text="Statut :").pack(pady=5)
         e_status = ttk.Entry(win, width=20)
-        e_status.insert(0, current_status)
+        e_status.insert(0, current_status if current_status else "A_TRAITER")
         e_status.config(state="readonly")
         e_status.pack()
 
         def save_changes():
             new_date = e_date.get().strip()
+            # Validation Date Simple
             try:
                 datetime.strptime(new_date, '%Y-%m-%d')
             except ValueError:
-                messagebox.showerror("Erreur", "Format de date invalide.\nUtilisez AAAA-MM-JJ")
+                messagebox.showerror("Erreur", "Format de date invalide.\nUtilisez AAAA-MM-JJ", parent=win)
                 return
 
+            # Validation Montant
             try:
-                new_amount = float(e_amount.get().replace(',', '.'))
+                val = e_amount.get().replace(',', '.')
+                new_amount = float(val)
             except ValueError:
-                messagebox.showerror("Erreur", "Montant invalide.")
+                messagebox.showerror("Erreur", "Montant invalide.", parent=win)
                 return
 
             new_cat = e_cat.get()
             if not new_cat:
-                messagebox.showwarning("Attention", "La catégorie est vide.")
+                messagebox.showwarning("Attention", "Veuillez choisir une catégorie.", parent=win)
                 return
 
+            # Sauvegarde en base
             database.update_transaction_fields(
-                t_id, new_date, e_label.get().strip(), new_amount, new_cat, e_note.get().strip(), current_status
+                t_id, 
+                new_date, 
+                e_label.get().strip(), 
+                new_amount, 
+                new_cat, 
+                e_note.get().strip(), 
+                current_status
             )
             
             self.refresh_data()
             win.destroy()
-            messagebox.showinfo("Information", "Modification enregistrée.")
+            messagebox.showinfo("Succès", "Modification enregistrée.")
 
         ttk.Button(win, text="Enregistrer", command=save_changes).pack(pady=20)
 
@@ -512,65 +545,149 @@ class EcoGestApp:
     # =========================================================================
     
     def update_chart(self, event=None):
-        """Met à jour les graphiques et les budgets."""
+        """Met à jour les graphiques (Titres en Français)."""
         
-        # Nettoyage
+        # Nettoyage de la zone graphique
         for w in self.chart_container.winfo_children(): w.destroy()
         
-        # 1. Lecture de l'état actuel de l'interface
+        # 1. CONFIGURATION & VARIABLES
         viz = self.combo_viz_style.get()
-        dtype = "expense" if self.combo_chart_type.get() == "Dépenses" else "income"
+        if viz == "Camembert": viz = "Bulles"
+        if viz == "Bâtons": viz = "Chronologie"
+
+        # On récupère le type technique pour la base de données ("expense" ou "income")
+        raw_type = self.combo_chart_type.get() # "Dépenses" ou "Revenus"
+        dtype = "expense" if raw_type == "Dépenses" else "income"
+        
+        # On garde le nom en français pour l'affichage du titre
+        display_name = raw_type 
+
         y = self.combo_year.get()
         m = self.combo_month.get()
-        
-        # Filtre de statut
         status_filter = None if self.var_show_all.get() else "VALIDEE"
         
-        # Logique Multiplicateur Budgétaire
-        if m == "Tous":
-            multiplier = 12
+        # --- Gestion de la colonne de droite (Budgets) ---
+        cat_data = database.get_stats_by_category(year=y, month=m, transaction_type="expense", status_filter=status_filter)
+        multiplier = 12 if m == "Tous" else 1
+        
+        if dtype == "expense":
+            self.update_budgets_view(cat_data, multiplier)
         else:
-            multiplier = 1
-        
-        # 2. Création du graphique
-        fig = Figure(figsize=(5, 4), dpi=100)
+            for w in self.budget_container.winfo_children(): w.destroy()
+            ttk.Label(self.budget_container, text="Budgets disponibles\nuniquement pour les dépenses", 
+                      justify="center", foreground="gray", wraplength=150).pack(pady=20)
+
+        # 2. PRÉPARATION DU GRAPHIQUE
+        fig = Figure(figsize=(5, 4), dpi=100, facecolor='white')
         ax = fig.add_subplot(111)
-        
-        if viz == "Camembert":
-            data = database.get_stats_by_category(year=y, month=m, transaction_type=dtype, status_filter=status_filter)
-            
-            # Mise à jour des budgets (on utilise les données brutes pour les jauges)
-            if dtype == "expense": 
-                self.update_budgets_view(data, multiplier)
+        ax.set_facecolor('white')
+
+        # --- MODE 1 : BULLES ---
+        if viz == "Bulles":
+            if dtype == "income":
+                data = database.get_stats_by_category(year=y, month=m, transaction_type="income", status_filter=status_filter)
             else:
-                for w in self.budget_container.winfo_children(): w.destroy()
-                ttk.Label(self.budget_container, text="Budgets disponibles\npour les dépenses", justify="center", foreground="gray").pack(pady=20)
-            
+                data = cat_data
+
+            # Filtre les petits montants
+            data = [d for d in data if d[1] > 0.01]
+
             if data:
-                # --- AFFICHAGE COMPLET SANS REGROUPEMENT ---
-                # On trie pour avoir les plus gros en premier
                 data.sort(key=lambda x: x[1], reverse=True)
-                
                 labels = [d[0] for d in data]
                 values = [d[1] for d in data]
-
-                # Fonction intelligente pour masquer le texte si < 2%
-                def smart_autopct(pct):
-                    return '%1.1f%%' % pct if pct > 2 else ''
+                max_val = max(values)
                 
-                ax.pie(values, labels=labels, autopct=smart_autopct, startangle=90, pctdistance=0.85)
-                ax.set_title(f"Répartition {dtype}")
+                # Taille des bulles
+                min_size, max_size = 1500, 5000
+                sizes = [min_size + ((v/max_val)**0.5 * (max_size-min_size)) for v in values]
+
+                # Calcul grille
+                nb_items = len(data)
+                if nb_items == 2: cols = 2
+                elif nb_items == 4: cols = 2
+                else: cols = 3 if nb_items >= 3 else 1
+
+                x_coords = []
+                y_coords = []
+                for i in range(nb_items):
+                    x_coords.append(i % cols)
+                    y_coords.append(-(i // cols))
+
+                ax.scatter(x_coords, y_coords, s=sizes, alpha=0.5, c=range(nb_items), cmap='viridis', edgecolors='gray')
+                
+                # Texte dans les bulles
+                for i, txt in enumerate(labels):
+                    disp_txt = txt[:9]+"." if len(txt)>10 else txt
+                    ax.annotate(f"{disp_txt}\n{values[i]:.0f}€", 
+                                (x_coords[i], y_coords[i]), 
+                                ha='center', va='center', 
+                                fontsize=8, weight='bold', color='black')
+
+                ax.axis('off')
+                # --- TITRE CORRIGÉ ---
+                ax.set_title(f"Répartition {display_name}", color='black', fontsize=12, fontweight='bold')
+                
+                # Marges
+                ax.set_xlim(-0.6, cols - 0.4)
+                nb_rows = (nb_items + cols - 1) // cols
+                ax.set_ylim(-nb_rows + 0.4, 0.6)
+
             else:
-                ax.text(0.5, 0.5, "Pas de données", ha='center')
+                ax.text(0.5, 0.5, "AUCUNE DONNÉE", ha='center', color='red')
+                ax.axis('off')
+
+        # --- MODE 2 : POURCENTAGES (BARRES) ---
+        elif viz == "Pourcentages":
+            if dtype == "income":
+                data = database.get_stats_by_category(year=y, month=m, transaction_type="income", status_filter=status_filter)
+            else:
+                data = cat_data
+            
+            data = [d for d in data if d[1] > 0]
+
+            if data:
+                data.sort(key=lambda x: x[1], reverse=True)
+                cats = [d[0] for d in data]
+                amounts = [d[1] for d in data]
+                total = sum(amounts) if amounts else 1
+                percents = [(a / total) * 100 for a in amounts]
+                
+                bars = ax.bar(cats, percents, color='#f44336' if dtype == "expense" else '#4caf50')
+                
+                for bar in bars:
+                    height = bar.get_height()
+                    if height > 3:
+                        ax.text(bar.get_x() + bar.get_width()/2., height + 0.5,
+                                f'{height:.0f}%', ha='center', va='bottom', fontsize=8, fontweight='bold')
+                
+                # --- TITRE CORRIGÉ ---
+                ax.set_title(f"Répartition {display_name}", color='black', pad=15, fontsize=12, fontweight='bold')
+                
+                ax.set_ylabel("%")
+                plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                fig.subplots_adjust(bottom=0.3)
+            else:
+                ax.text(0.5, 0.5, "AUCUNE DONNÉE", ha='center', color='red')
+                ax.axis('off')
+
+        # --- MODE 3 : CHRONOLOGIE ---
         else:
-            # Histogramme
             if not y or y == "Tous":
-                ax.text(0.5, 0.5, "Choisir une année\npour l'évolution", ha='center')
+                ax.text(0.5, 0.5, "Sélectionnez une année précise", ha='center', color='black')
+                ax.axis('off')
             else:
-                data = database.get_monthly_totals(y, dtype, status_filter=status_filter)
+                monthly_data = database.get_monthly_totals(y, dtype, status_filter=status_filter)
                 months = ["J","F","M","A","M","J","J","A","S","O","N","D"]
-                ax.bar(months, data, color='skyblue' if dtype == "income" else 'salmon')
-                ax.set_title(f"Évolution {dtype} en {y}")
+                ax.bar(months, monthly_data, color='skyblue' if dtype == "income" else 'salmon')
+                
+                # --- TITRE CORRIGÉ ---
+                ax.set_title(f"Évolution {display_name} sur {y}", color='black', fontsize=12, fontweight='bold')
+                
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
                 
         self.canvas = FigureCanvasTkAgg(fig, master=self.chart_container)
         self.canvas.draw()
@@ -578,40 +695,208 @@ class EcoGestApp:
 
     def update_budgets_view(self, data, multiplier):
         for w in self.budget_container.winfo_children(): w.destroy()
+        
         budgets = database.get_all_budgets()
         expenses = {d[0]: d[1] for d in data} if data else {}
         
         if multiplier > 1:
             ttk.Label(self.budget_container, text=f"Calcul sur {multiplier} mois (Annuel)", font=("Arial", 11, "italic")).pack(pady=(0, 10))
             
+        if not budgets:
+             ttk.Label(self.budget_container, text="Aucun budget défini.\nCliquez sur 'Définir un Budget'.", justify="center", foreground="gray", font=("Arial", 10)).pack(pady=20)
+             return
+
+        # Le petit texte d'aide un peu plus grand aussi
+        ttk.Label(self.budget_container, text="Cliquez sur un budget pour le modifier", font=("Arial", 9), foreground="gray").pack(pady=(0, 10))
+
         for cat, limit in budgets.items():
             spent = expenses.get(cat, 0)
             total_limit = limit * multiplier
             pct = (spent / total_limit * 100) if total_limit else 0
             
-            f = ttk.Frame(self.budget_container, padding=5)
-            f.pack(fill="x")
+            # On aère un peu plus les blocs (pady=4 au lieu de 2)
+            f = ttk.Frame(self.budget_container, padding=5, relief="flat")
+            f.pack(fill="x", pady=4)
             
-            ttk.Label(f, text=f"{cat}: {spent:.0f} / {total_limit:.0f} €").pack(anchor="w")
+            f.bind("<Enter>", lambda e, frame=f: frame.config(relief="raised"))
+            f.bind("<Leave>", lambda e, frame=f: frame.config(relief="flat"))
             
-            style = "red.Horizontal.TProgressbar" if spent > total_limit else "green.Horizontal.TProgressbar"
-            ttk.Progressbar(f, value=min(pct, 100), style=style).pack(fill="x")
+            label_text = f"{cat}: {spent:.0f} / {total_limit:.0f} €"
+            
+            # --- MODIFICATION ICI : Police plus grande (11) ---
+            lbl = ttk.Label(f, text=label_text, font=("Arial", 11))
+            lbl.pack(anchor="w")
+            
+            style_name = "red.Horizontal.TProgressbar" if spent > total_limit else "green.Horizontal.TProgressbar"
+            pb = ttk.Progressbar(f, value=min(pct, 100), style=style_name)
+            pb.pack(fill="x", pady=(2, 0)) # Un peu d'espace entre le texte et la barre
+            
+            # Callbacks cliquables
+            callback = lambda e, c=cat, l=limit: self.open_budget_options(c, l)
+            f.bind("<Button-1>", callback)
+            lbl.bind("<Button-1>", callback)
+            pb.bind("<Button-1>", callback)
 
+    def open_quick_rule_modal(self, tree):
+        """Ouvre une fenêtre pour créer une règle rapidement depuis une transaction."""
+        sel = tree.selection()
+        if not sel: return
+        
+        # Récupération des infos de la ligne sélectionnée
+        # values = [id, date, label, amount, category, ...]
+        values = tree.item(sel[0])['values']
+        current_label = values[2]  # Le libellé complet
+        current_cat = values[4]    # La catégorie actuelle
+
+        if not current_cat:
+            messagebox.showwarning("Attention", "Veuillez d'abord attribuer une catégorie à cette transaction.")
+            return
+
+        # --- FENÊTRE MODALE ---
+        win = tk.Toplevel(self.root)
+        win.title("⚡️ Créer une Règle Rapide")
+        win.geometry("400x250")
+        win.configure(bg='white')
+        win.transient(self.root)
+        win.grab_set()
+        
+        # Centrage
+        win.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 200
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 125
+        win.geometry(f"+{x}+{y}")
+
+        frame = tk.Frame(win, bg='white', padx=20, pady=20)
+        frame.pack(fill="both", expand=True)
+
+        # Instructions
+        tk.Label(frame, text="Si le libellé contient :", font=("Arial", 10, "bold"), bg='white').pack(anchor="w")
+        
+        # Champ Mot-clé (Pré-rempli mais éditable)
+        # On essaie de deviner un mot clé "propre" (ex: on prend les 2 premiers mots)
+        # Mais l'utilisateur pourra le changer.
+        suggested_keyword = " ".join(current_label.split()[:2]) 
+        
+        e_keyword = ttk.Entry(frame, font=("Arial", 11))
+        e_keyword.insert(0, suggested_keyword)
+        e_keyword.pack(fill="x", pady=(5, 15))
+        e_keyword.select_range(0, tk.END) # Sélectionne le texte pour faciliter la modif
+        e_keyword.focus()
+
+        tk.Label(frame, text="Alors mettre la catégorie :", font=("Arial", 10, "bold"), bg='white').pack(anchor="w")
+        
+        # Liste Catégories
+        cats = database.list_categories()
+        combo_cat = ttk.Combobox(frame, values=cats, state="readonly", font=("Arial", 11))
+        combo_cat.set(current_cat)
+        combo_cat.pack(fill="x", pady=(5, 20))
+
+        def save_rule():
+            kw = e_keyword.get().strip()
+            cat = combo_cat.get()
+            
+            if not kw or not cat: return
+            
+            # Ajout en base
+            database.add_rule(kw, cat)
+            
+            # Refresh
+            self.refresh_data()
+            win.destroy()
+            messagebox.showinfo("Succès", f"Règle ajoutée !\nTout ce qui contient '{kw}' ira dans '{cat}'.")
+
+        # Bouton
+        ttk.Button(frame, text="Créer la règle", command=save_rule, default="active").pack(fill="x", pady=5)
+        win.bind('<Return>', lambda e: save_rule())
+
+    def open_budget_options(self, category, current_amount):
+        """Ouvre une fenêtre propre (fond blanc) pour modifier ou supprimer un budget."""
+        win = tk.Toplevel(self.root)
+        win.title(f"Budget : {category}")
+        win.geometry("320x260")
+        win.transient(self.root)
+        win.grab_set()
+        
+        # 1. DESIGN : On force le fond blanc pour toute la fenêtre
+        win.configure(bg='white')
+        
+        # Centrage
+        win.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 160
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 130
+        win.geometry(f"+{x}+{y}")
+
+        # Conteneur principal avec marges internes (padding)
+        main_frame = tk.Frame(win, bg='white', padx=20, pady=20)
+        main_frame.pack(fill="both", expand=True)
+
+        # 2. CONTENU
+        # Titre en Gros
+        tk.Label(main_frame, text=category, font=("Arial", 14, "bold"), 
+                 bg='white', fg='#333').pack(pady=(0, 5))
+        
+        # Sous-titre
+        tk.Label(main_frame, text=f"Actuel : {current_amount:.0f} €", font=("Arial", 10), 
+                 bg='white', fg='gray').pack(pady=(0, 20))
+        
+        # Champ de saisie
+        tk.Label(main_frame, text="Nouvel objectif mensuel (€) :", 
+                 font=("Arial", 10, "bold"), bg='white', anchor="w").pack(fill="x")
+        
+        e_amount = ttk.Entry(main_frame, font=("Arial", 12))
+        e_amount.insert(0, str(int(current_amount)))
+        e_amount.pack(fill="x", pady=(5, 20))
+        e_amount.focus()
+
+        # 3. LOGIQUE (inchangée)
+        def do_update():
+            try:
+                new_val = float(e_amount.get().replace(',', '.'))
+                database.set_budget(category, new_val)
+                self.refresh_data()
+                win.destroy()
+                messagebox.showinfo("Succès", "Budget mis à jour.")
+            except ValueError:
+                messagebox.showerror("Erreur", "Montant invalide.")
+
+        def do_delete():
+            # Petite confirmation stylée
+            if messagebox.askyesno("Suppression", f"Voulez-vous vraiment supprimer\nle budget '{category}' ?"):
+                database.delete_budget(category)
+                self.refresh_data()
+                win.destroy()
+
+        # 4. BOUTONS
+        # On met les boutons dans un cadre blanc en bas
+        btn_frame = tk.Frame(main_frame, bg='white')
+        btn_frame.pack(fill="x")
+        
+        # Bouton Supprimer (Rouge/Attention - style simple)
+        # Sur Mac, ttk.Button est le mieux pour rester natif
+        ttk.Button(btn_frame, text="Supprimer", command=do_delete).pack(side="left", expand=True)
+        
+        # Bouton Valider (Normal)
+        # On utilise un Frame vide au milieu pour espacer
+        tk.Frame(btn_frame, bg='white', width=10).pack(side="left")
+        
+        # On peut mettre le bouton Valider en "default" pour qu'il soit bleu (sur mac)
+        btn_save = ttk.Button(btn_frame, text="Enregistrer", command=do_update, default="active")
+        btn_save.pack(side="right", expand=True)
+        
+        # Permet de valider avec la touche Entrée
+        win.bind('<Return>', lambda e: do_update())
     def set_budget_action(self):
-        # Création d'une fenêtre modale personnalisée
         win = tk.Toplevel(self.root)
         win.title("Définir un Budget Mensuel")
         win.geometry("300x200")
         win.transient(self.root)
         win.grab_set()
         
-        # Centrer la fenêtre
         win.update_idletasks()
         x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 150
         y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 100
         win.geometry(f"+{x}+{y}")
 
-        # 1. Liste déroulante des Catégories
         ttk.Label(win, text="Choisir la catégorie :").pack(pady=(20, 5))
         
         cats = database.list_categories()
@@ -619,21 +904,17 @@ class EcoGestApp:
         combo_cat.pack()
         if cats: combo_cat.current(0)
 
-        # 2. Champ Montant
         ttk.Label(win, text="Budget mensuel (€) :").pack(pady=(10, 5))
         entry_amount = ttk.Entry(win, width=15)
         entry_amount.pack()
         entry_amount.focus()
 
-        # 3. Fonction de sauvegarde
         def save():
             cat = combo_cat.get()
             amount_str = entry_amount.get().strip().replace(',', '.')
-            
             if not cat:
                 messagebox.showwarning("Erreur", "Veuillez choisir une catégorie.", parent=win)
                 return
-            
             try:
                 amount = float(amount_str)
                 database.set_budget(cat, amount)
@@ -642,13 +923,10 @@ class EcoGestApp:
             except ValueError:
                 messagebox.showerror("Erreur", "Montant invalide.", parent=win)
 
-        # 4. Bouton Valider
         ttk.Button(win, text="Enregistrer", command=save).pack(pady=20)
-        
         win.bind('<Return>', lambda e: save())
 
     def show_forecast_modal(self):
-        # 1. Récupération des données
         history = database.get_monthly_balance_history(12) 
         if not history or len(history) < 3:
             messagebox.showinfo("Information", "Pas assez de données pour une prévision (min 3 mois).")
@@ -657,23 +935,18 @@ class EcoGestApp:
         months = [h[0] for h in history]
         balances = [h[1] for h in history]
 
-        # 2. Calcul mathématique
         projections = logic.calculate_trend(balances)
         
-        # 3. Création de la fenêtre
         win = tk.Toplevel(self.root)
         win.title("Prévision de Trésorerie (3 mois)")
         win.geometry("600x450")
         
-        # 4. Graphique
         fig = Figure(figsize=(6, 4), dpi=100)
         ax = fig.add_subplot(111)
         
-        # Données Historiques
         x_hist = range(len(balances))
         ax.plot(x_hist, balances, marker='o', linestyle='-', color='blue', label='Réel')
         
-        # Données Projetées (On relie le dernier point réel au premier projeté)
         last_real_x = x_hist[-1]
         last_real_val = balances[-1]
         
@@ -682,14 +955,12 @@ class EcoGestApp:
         
         ax.plot(x_proj, y_proj, marker='x', linestyle='--', color='red', label='Tendance')
         
-        # Ligne Zéro
         ax.axhline(0, color='black', linewidth=0.8, linestyle=':')
         
         ax.set_title("Projection du Solde Net Mensuel")
         ax.set_ylabel("Solde (€)")
         ax.set_xticks(list(x_hist) + list(x_proj[1:]))
         
-        # Labels axe X
         labels = [m[5:] for m in months] + ["+1 M", "+2 M", "+3 M"] 
         ax.set_xticklabels(labels, rotation=45)
         
@@ -700,7 +971,6 @@ class EcoGestApp:
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
         
-        # 5. Disclaimer
         disclaimer = "Note : Estimation basée sur une régression linéaire des 12 derniers mois.\n"\
                      "Ne prend pas en compte les événements exceptionnels futurs."
         lbl = tk.Label(win, text=disclaimer, fg="#555", font=("Arial", 9, "italic"), justify="center", pady=10)

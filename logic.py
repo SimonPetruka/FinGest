@@ -1,7 +1,7 @@
 import csv
 import hashlib
 from datetime import datetime
-import database
+import database as database
 
 # =============================================================================
 # GESTION IMPORT CSV
@@ -65,9 +65,6 @@ def import_csv_file(file_path):
             for row in reader:
                 if not row: continue # Ligne vide
                 
-                # Adaptation selon les colonnes de ton CSV
-                # On suppose l'ordre standard : Date ; Libellé ; Montant
-                # Si ton fichier est différent, change les indices [0], [1], [2]
                 if len(row) < 3:
                     errors += 1
                     continue
@@ -87,7 +84,7 @@ def import_csv_file(file_path):
                 # 1. Génération de l'empreinte unique
                 fingerprint = generate_fingerprint(final_date, final_amount, final_label)
 
-                # 2. Vérification doublon (CORRIGÉ ICI)
+                # 2. Vérification doublon 
                 if database.transaction_exists(fingerprint):
                     duplicate_count += 1
                     continue
@@ -130,7 +127,7 @@ def calculate_trend(values):
     """
     n = len(values)
     if n < 2:
-        return [0, 0, 0] # Pas assez de données
+        return [0, 0, 0] 
 
     # X = [0, 1, 2...] (Les mois)
     x = list(range(n))
@@ -154,7 +151,7 @@ def calculate_trend(values):
     # Prévision pour n+1, n+2, n+3
     predictions = []
     for i in range(1, 4):
-        next_x = n - 1 + i # On continue l'échelle de temps
+        next_x = n - 1 + i 
         pred_y = (slope * next_x) + intercept
         predictions.append(pred_y)
 

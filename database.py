@@ -452,7 +452,13 @@ def set_budget(category, amount):
     conn.execute("INSERT OR REPLACE INTO budgets (category, amount) VALUES (?, ?)", (category, amount))
     conn.commit()
     conn.close()
-
+    
+def delete_budget(category):
+    conn = get_db_connection()
+    conn.execute("DELETE FROM budgets WHERE category = ?", (category,))
+    conn.commit()
+    conn.close()
+    
 def get_monthly_balance_history(limit=12):
     """Récupère le solde net (Recettes - Dépenses) des derniers mois."""
     conn = get_db_connection()
