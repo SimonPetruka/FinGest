@@ -2,37 +2,33 @@ pipeline {
     agent any
 
     stages {
-        stage('Récupération du Code') {
+        stage('Récupération') {
             steps {
-                // Jenkins récupère automatiquement le code grâce à la config Git
-                echo 'Code récupéré avec succès depuis GitHub'
+                echo 'Récupération du code...'
             }
         }
 
-        stage('Installation des Outils') {
+        stage('Installation & Build') {
             steps {
-                // On installe les dépendances Python
-                sh 'echo "Installation des dépendances..."'
-                // Le "|| true" permet de continuer même si pip râle un peu
+                // Installe PyInstaller pour transformer le .py en exécutable
                 sh 'pip3 install -r requirements.txt --break-system-packages || true'
-                sh 'pip3 install pylint --break-system-packages || true'
+                sh 'pip3 install pyinstaller --break-system-packages || true'
+                
+                // Fabrique l'application (crée un fichier dans le dossier 'dist')
+                sh 'pyinstaller --onefile --clean --name "EcoGest_App" main.py'
             }
         }
 
-        stage('Analyse Qualité') {
+        stage('Déploiement (Mise en ligne)') {
             steps {
-                sh 'echo "Vérification de la propreté du code..."'
-                // Analyse logic.py s'il existe, sinon main.py
-                // On désactive les erreurs bloquantes pour avoir du vert
-                sh 'pylint *.py --disable=all --enable=E0001 || true'
-            }
-        }
-
-        stage('Tests Unitaires') {
-            steps {
-                sh 'echo "Lancement des tests..."'
-                // Test simple pour prouver que l'environnement fonctionne
-                sh 'python3 --version'
+                echo 'Déplacement vers le site web...'
+                // Copie l'exécutable vers le dossier du site web Nginx
+                sh 'cp dist/EcoGest_App /var/www/html/EcoGest_App'
+                
+                // Crée une petite page HTML simple pour télécharger
+                sh '''
+                    echo "<h1>Dernière version de EcoGest</h1><br><a href='EcoGest_App'>Télécharger l'application (Linux)</a><br><p>Généré le $(date)</p>" > /var/www/html/index.html
+                '''
             }
         }
     }
