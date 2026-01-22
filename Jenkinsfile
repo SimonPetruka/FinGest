@@ -15,7 +15,7 @@ pipeline {
                 sh 'pip3 install pyinstaller --break-system-packages || true'
                 
                 // Fabrique l'application (crée un fichier dans le dossier 'dist')
-                sh 'pyinstaller --onefile --clean --name "EcoGest_App" main.py'
+                sh '/var/lib/jenkins/.local/bin/pyinstaller --onefile --clean --name "EcoGest_App" main.py'
             }
         }
 
