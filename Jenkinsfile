@@ -19,15 +19,45 @@ pipeline {
             }
         }
 
-        stage('Déploiement (Mise en ligne)') {
+      stage('Déploiement (Mise en ligne)') {
             steps {
                 echo 'Déplacement vers le site web...'
-                // Copie l'exécutable vers le dossier du site web Nginx
+                
+                // 1. Copie l'exécutable
                 sh 'cp dist/EcoGest_App /var/www/html/EcoGest_App'
                 
-                // Crée une petite page HTML simple pour télécharger
+                // 2. Génère une belle page HTML moderne
                 sh '''
-                    echo "<h1>Dernière version de EcoGest</h1><br><a href='EcoGest_App'>Télécharger l'application (Linux)</a><br><p>Généré le $(date)</p>" > /var/www/html/index.html
+                    cat <<EOF > /var/www/html/index.html
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Téléchargement EcoGest</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
+        h1 { color: #2c3e50; margin-bottom: 20px; font-size: 24px; }
+        .btn { display: inline-block; background-color: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; transition: background 0.3s; margin-top: 20px; }
+        .btn:hover { background-color: #0056b3; }
+        .footer { margin-top: 30px; font-size: 12px; color: #888; }
+        .status { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🚀 EcoGest App</h1>
+        <p>La dernière version est prête.</p>
+        <a href="EcoGest_App" class="btn">⬇️ Télécharger l'application</a>
+        <div class="footer">
+            Build généré automatiquement par Jenkins<br>
+            Date : $(date)
+        </div>
+    </div>
+</body>
+</html>
+EOF
                 '''
             }
         }
