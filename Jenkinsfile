@@ -35,7 +35,7 @@ pipeline {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoGest App</title>
+    <title>FinGest App</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
@@ -53,7 +53,7 @@ pipeline {
         <h1>EcoGest V1.0</h1>
         <p>Plateforme de téléchargement sécurisée</p>
         
-        <a href="FinGest_App" class="btn btn-linux">Télécharger (Linux / Serveur)</a>
+        <a href="EcoGest_App" class="btn btn-linux">Télécharger (Linux / Serveur)</a>
         
         <a href="EcoGest_Source.zip" class="btn btn-mac"> / ⊞ Télécharger le Code (Mac/PC)</a>
 
