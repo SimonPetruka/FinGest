@@ -52,10 +52,10 @@ pipeline {
 </head>
 <body>
     <div class="card">
-        <h1>🌱 EcoGest V1.0</h1>
+        <h1>EcoGest V1.0</h1>
         <p>Plateforme de téléchargement sécurisée</p>
         
-        <a href="EcoGest_App" class="btn btn-linux">🐧 Télécharger (Linux / Serveur)</a>
+        <a href="EcoGest_App" class="btn btn-linux">Télécharger (Linux / Serveur)</a>
         
         <a href="EcoGest_Source.zip" class="btn btn-mac"> / ⊞ Télécharger le Code (Mac/PC)</a>
 
