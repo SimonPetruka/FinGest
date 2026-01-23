@@ -50,7 +50,7 @@ pipeline {
 </head>
 <body>
     <div class="card">
-        <h1>EcoGest V1.0</h1>
+        <h1>FinGest V1.0</h1>
         <p>Plateforme de téléchargement sécurisée</p>
         
         <a href="EcoGest_App" class="btn btn-linux">Télécharger (Linux / Serveur)</a>
