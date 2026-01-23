@@ -10,26 +10,24 @@ pipeline {
 
         stage('Installation & Build') {
             steps {
-                // Installe les librairies Python
+
                 sh 'pip3 install -r requirements.txt --break-system-packages || true'
                 sh 'pip3 install pyinstaller --break-system-packages || true'
                 
-                // 1. Fabrique l'exécutable Linux (Pour le VPS)
+                //linux
                 sh '/var/lib/jenkins/.local/bin/pyinstaller --onefile --clean --name "EcoGest_App" main.py'
                 
-                // 2. Fabrique le ZIP du code source (Pour ton Mac)
-                // Le "apt-get" est retiré car tu l'as fait à la main en SSH
+                //macOS
                 sh 'zip -r dist/EcoGest_Source.zip . -x "*.git*" -x "venv/*" -x "dist/*" -x "__pycache__/*"'
             }
         }
 
         stage('Déploiement') {
             steps {
-                // Copie les fichiers vers le site web
                 sh 'cp dist/EcoGest_App /var/www/html/EcoGest_App'
                 sh 'cp dist/EcoGest_Source.zip /var/www/html/EcoGest_Source.zip'
+
                 
-                // Génère la page HTML avec les 2 boutons
                 sh '''
                     cat <<EOF > /var/www/html/index.html
 <!DOCTYPE html>
@@ -55,7 +53,7 @@ pipeline {
         <h1>EcoGest V1.0</h1>
         <p>Plateforme de téléchargement sécurisée</p>
         
-        <a href="EcoGest_App" class="btn btn-linux">Télécharger (Linux / Serveur)</a>
+        <a href="FinGest_App" class="btn btn-linux">Télécharger (Linux / Serveur)</a>
         
         <a href="EcoGest_Source.zip" class="btn btn-mac"> / ⊞ Télécharger le Code (Mac/PC)</a>
 
